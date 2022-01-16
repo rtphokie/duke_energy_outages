@@ -52,6 +52,11 @@ class DukeEnergyOutages():
             df = pd.DataFrame.from_dict(cache, orient='index', columns=data['data'].keys())
             df.index = df['lastUpdated']
             df.to_csv(filename)
+        df2=df[['customersAffectedNC', 'customersAffectedSC','lastUpdated']]
+        # df2.index = df2['lastUpdated']
+        df2.rename(columns={"customersAffectedNC": "NC", "customersAffectedSC": "SC"}, inplace=True)
+        lines = df2.plot.line()
+        plt.show()
 
     def get_county_level(self):
         filename = 'duke_county.csv'
