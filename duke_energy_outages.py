@@ -115,17 +115,17 @@ class DukeEnergyOutages():
             data=data['data']
         except:
             data = {}
-        print(len(data))
-
         pbar = tqdm(data)
 
-        tot={'cached': 0, 'total':0}
+        tot={'cached': 0, 'total':0, 'updated': 0}
         for evnt in (pbar := tqdm(data)):
-            from_cache, foo = self.outage_detail(evnt['sourceEventNumber'])
+            from_cache, updated, foo = self.outage_detail(evnt['sourceEventNumber'])
             tot['total']+=1
+            if updated:
+                tot['updated']+=1
             if from_cache:
                 tot['cached']+=1
-            pbar.set_description(f"{tot['cached']/tot['total']:.4f}")
+            pbar.set_description(f"{tot['cached']/tot['total']:.4f} {tot['updated']/tot['total']:.4f}")
             # print(f"{foo['sourceEventNumber']:20} {foo['crewStatTxt']}")
 
     def outage_detail(self, id):
@@ -149,13 +149,15 @@ class DukeEnergyOutages():
         for param in ['statesAffected', 'etrOverride', 'customersAffectedNumber', 'countiesAffected']:
             if param in data.keys():
                 del(data[param])
+        updated = False
         if 'sourceEventNumber' not in data.keys():
             data = {}
         else:
             data['sourceEventNumber-crewStatTxt']=f"{data['sourceEventNumber']}-{data['crewStatTxt']}"
-            if indexcol not in cache.keys():
+            if data[indexcol] not in cache.keys():
+                updated=True
                 cache[indexcol]=data
                 df = pd.DataFrame.from_dict(cache, orient='index', columns=data.keys())
                 df.index = df[indexcol]
                 df.to_csv(filename)
-        return r.from_cache, data
+        return r.from_cache, updated, data
