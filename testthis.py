@@ -10,7 +10,6 @@ requests_cache.install_cache('test_cache', backend='sqlite', expire_after=3600)
 slong = requests_cache.CachedSession(expire_after=timedelta(hours=2))  # shared session, maintains cookies throughout
 s = requests_cache.CachedSession(expire_after=timedelta(minutes=5))  # shared session, maintains cookies throughout
 
-
 urls = [
     # 'https://outagemap.duke-energy.com/#/current-outages/ncsc',
     # 'https://outagemap.duke-energy.com/config/env.json',
@@ -31,52 +30,19 @@ class DukePowerOutageTest(unittest.TestCase):
 
     def test_state_level(self):
         uut = DukeEnergyOutages(short_expire_min=5)
-        uut.get_state_level()
-
+        uut.get_state_summary(plot=False)
 
     def test_county_level(self):
         uut = DukeEnergyOutages()
-        uut.get_county_level()
+        uut.get_county_summary()
 
+    def test_outages(self):
+        uut = DukeEnergyOutages()
+        uut.get_individual_outages()
 
-class MyTestCase(unittest.TestCase):
-
-    def test_all(self):
-        #NC bounding box -84.321869	33.842316	-75.460621	36.588117
-        url = f"    'https://cust-api.duke-energy.com/outage-maps/v1/outages?jurisdiction=DEP&swLat=35.6&swLong=-78.8&neLat=35.7&neLong=-78.6',"
-        for x in range (-754,-844, -1):
-            lat=x/10.0
-            print(lat)
-            for y in range(338, 366, 1):
-                lng = y / 10.0
-                print(lng)
-
-    def test_something(self):
-        for url in urls:
-            r = s.get(url, headers=headers)
-            print(r.status_code, url)
-            try:
-                data = r.json()
-                # pprint(data)
-                if 'outage' in url:
-                    print(len(data['data']))
-                    print(json.dumps(data, indent=4))
-                else:
-                    print(json.dumps(data, indent=4)[:500])
-            except:
-                pass
-        return
-
-        url_map = 'https://outagemap.duke-energy.com/#/current-outages/ncsc'
-        r = s.get(url_map)
-        # url_county='https://outagemap.duke-energy.com/assets/county-coordinates/counties.NCSC.json'
-        # r = s.get(url_county)
-        # data = r.json()
-        # pprint(data)
-        url_count_alerts = 'https://cust-api.duke-energy.com/outage-maps/v1/counties?jurisdiction=DEC'
-        r = s.get(url_count_alerts)
-        data = r.json()
-        pprint(data)
+    def test_outage_details(self):
+        uut = DukeEnergyOutages(short_expire_min=20)
+        uut.outage_detail(5450188)
 
 
 if __name__ == '__main__':

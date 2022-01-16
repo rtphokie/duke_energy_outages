@@ -1,10 +1,14 @@
-import unittest
 import json
+from tqdm import tqdm
+
 from datetime import timedelta
 import pandas  as pd
 from pprint import pprint
 import requests, requests_cache  # https://requests-cache.readthedocs.io/en/latest/
 import matplotlib.pyplot as plt
+import geopandas as gpd
+from shapely.geometry import Polygon
+import folium
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 900)
@@ -24,7 +28,7 @@ class DukeEnergyOutages():
     def __del__(self):
         self.s.close()
 
-    def get_state_level(self):
+    def get_state_summary(self, plot=True):
         '''
         top level data, use 15 second cache to ease impact of repeated unit testing
         :return:
@@ -52,13 +56,14 @@ class DukeEnergyOutages():
             df = pd.DataFrame.from_dict(cache, orient='index', columns=data['data'].keys())
             df.index = df['lastUpdated']
             df.to_csv(filename)
-        df2=df[['customersAffectedNC', 'customersAffectedSC','lastUpdated']]
-        # df2.index = df2['lastUpdated']
-        df2.rename(columns={"customersAffectedNC": "NC", "customersAffectedSC": "SC"}, inplace=True)
-        lines = df2.plot.line()
-        plt.show()
+        if plot:
+            df2=df[['customersAffectedNC', 'customersAffectedSC','lastUpdated']]
+            # df2.index = df2['lastUpdated']
+            df2.rename(columns={"customersAffectedNC": "NC", "customersAffectedSC": "SC"}, inplace=True)
+            lines = df2.plot.line()
+            plt.show()
 
-    def get_county_level(self):
+    def get_county_summary(self):
         filename = 'duke_county.csv'
         try:
             df_cache = pd.read_csv(filename)
@@ -88,3 +93,69 @@ class DukeEnergyOutages():
             df = pd.DataFrame.from_dict(records, orient='index', columns=record.keys())
             df.index = df['areaOfInterestName-lastUpdated']
             df.to_csv(filename)
+
+    def get_individual_outages(self):
+        filename = 'duke_outages.csv'
+        filename_info = 'duke_outage_info.csv'
+        try:
+            df_cache = pd.read_csv(filename)
+            df_cache.index = df_cache['foo']
+            cache = df_cache.to_dict('index')
+            df_cache_info = pd.read_csv(filename_info)
+            df_cache_info.index = df_cache['foo']
+        except:
+            df_cache = pd.DataFrame()
+            df_cache_info = pd.DataFrame()
+            cache = {}
+        bounds=(33.842316,-84.321869,36.588117,-75.460621)
+        url = f"{self.url_api_base}/outages?jurisdiction={self.jurisdiction}&swLat={bounds[0]}&swLong={bounds[1]}&neLat={bounds[2]}&neLong={bounds[3]}"
+        r = self.s.get(url, headers=self.headers)
+        try:
+            data = r.json()
+            data=data['data']
+        except:
+            data = {}
+        print(len(data))
+
+        pbar = tqdm(data)
+
+        tot={'cached': 0, 'total':0}
+        for evnt in (pbar := tqdm(data)):
+            from_cache, foo = self.outage_detail(evnt['sourceEventNumber'])
+            tot['total']+=1
+            if from_cache:
+                tot['cached']+=1
+            pbar.set_description(f"{tot['cached']/tot['total']:.4f}")
+            # print(f"{foo['sourceEventNumber']:20} {foo['crewStatTxt']}")
+
+    def outage_detail(self, id):
+        filename = 'duke_outage_details.csv'
+        indexcol='sourceEventNumber-crewStatTxt'
+        try:
+            df_cache = pd.read_csv(filename)
+            df_cache.index = df_cache[indexcol]
+            cache = df_cache.to_dict('index')
+        except:
+            df_cache = pd.DataFrame()
+            df_cache_info = pd.DataFrame()
+            cache = {}
+        url = f'{self.url_api_base}/outages/outage?jurisdiction={self.jurisdiction}&sourceEventNumber={id}'
+        r = self.s.get(url, headers=self.headers)
+        try:
+            data = r.json()
+            data=data['data']
+        except:
+            data = {}
+        for param in ['statesAffected', 'etrOverride', 'customersAffectedNumber', 'countiesAffected']:
+            if param in data.keys():
+                del(data[param])
+        if 'sourceEventNumber' not in data.keys():
+            data = {}
+        else:
+            data['sourceEventNumber-crewStatTxt']=f"{data['sourceEventNumber']}-{data['crewStatTxt']}"
+            if indexcol not in cache.keys():
+                cache[indexcol]=data
+                df = pd.DataFrame.from_dict(cache, orient='index', columns=data.keys())
+                df.index = df[indexcol]
+                df.to_csv(filename)
+        return r.from_cache, data
