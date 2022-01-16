@@ -30,13 +30,13 @@ urls = [
 class DukePowerOutageTest(unittest.TestCase):
 
     def test_state_level(self):
-        uut = DukeEnergyOutages()
+        uut = DukeEnergyOutages(short_expire_min=5)
         uut.get_state_level()
 
 
     def test_county_level(self):
         uut = DukeEnergyOutages()
-        uut.get_state_level()
+        uut.get_county_level()
 
 
 class MyTestCase(unittest.TestCase):
