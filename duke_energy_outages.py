@@ -1,4 +1,5 @@
 import json
+import shutil
 from tqdm import tqdm
 
 from datetime import timedelta
@@ -160,4 +161,5 @@ class DukeEnergyOutages():
                 df = pd.DataFrame.from_dict(cache, orient='index', columns=data.keys())
                 df.index = df[indexcol]
                 df.to_csv(filename)
+                shutil.copyfile(filename, filename.replace('details', 'details_back'))
         return r.from_cache, updated, data
